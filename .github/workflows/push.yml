@@ -1,0 +1,60 @@
+name: manage pushes
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  manage:
+    name: manage push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      security-events: write
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v2
+
+      - name: install required packages
+        run: sudo apt-get update && sudo apt-get install -y libpci-dev libvulkan-dev libwayland-dev libxrandr-dev libxcb-randr0-dev libdconf-dev libdbus-1-dev libmagickcore-dev libxfconf-0-dev libsqlite3-dev rpm librpm-dev libzstd-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+
+      - name: configure project
+        # We reuse the build binary only for the releases.
+        # We set tweak version to off, because it is wrong, as git tag will happen after this step. Releases don't have a tweak, so this is ok.
+        run: cmake -DSET_TWEAK=Off -DBUILD_TESTS=On .
+
+      - name: build project
+        run: cmake --build . -j$(nproc) --target package
+
+      - name: run fastfetch
+        run: ./fastfetch --recache --disable-linewrap false --hide-cursor false --show-errors true
+
+      - name: run flashfetch
+        run: ./flashfetch
+
+      - name: run tests
+        run: ctest
+
+      - name: perform CodeQL analysis
+        uses: github/codeql-action/analyze@v1
+
+      - name: get fastfetch version
+        id: get_version_fastfetch
+        run: echo "::set-output name=release::$(./fastfetch --version-raw)"
+
+      - name: get latest release version
+        id: get_version_release
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: ${{ github.repository }}
+
+      - name: create release
+        if: steps.get_version_fastfetch.outputs.release != steps.get_version_release.outputs.release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.get_version_fastfetch.outputs.release }}
+          commit: ${{ github.sha }}
+          artifacts: ./fastfetch-*.*
