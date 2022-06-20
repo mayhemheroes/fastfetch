@@ -1,6 +1,5 @@
-project: rnshah9/fastfetch
+project: fastfetch
 target: fastfetch
-tests: null
 
 cmds:
   - cmd: /repo/build/fastfetch --load-config @@
