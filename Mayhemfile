@@ -2,4 +2,4 @@ project: fastfetch
 target: fastfetch
 
 cmds:
-  - cmd: /repo/build/fastfetch --load-config @@
+  - cmd: /install/bin/fastfetch --load-config @@
