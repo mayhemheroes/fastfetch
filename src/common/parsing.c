@@ -1,4 +1,5 @@
 #include "fastfetch.h"
+#include "common/parsing.h"
 
 bool ffStrSet(const char* str)
 {
@@ -37,6 +38,32 @@ void ffParseSemver(FFstrbuf* buffer, const FFstrbuf* major, const FFstrbuf* mino
     ffStrbufAppendC(buffer, '.');
 
     ffStrbufAppend(buffer, patch);
+}
+
+int8_t ffVersionCompare(const FFVersion* version1, const FFVersion* version2)
+{
+    if(version1->major != version2->major)
+        return version1->major > version2->major ? 1 : -1;
+
+    if(version1->minor != version2->minor)
+        return version1->minor > version2->minor ? 1 : -1;
+
+    if(version1->patch != version2->patch)
+        return version1->patch > version2->patch ? 1 : -1;
+
+    return 0;
+}
+
+void ffVersionToPretty(const FFVersion* version, FFstrbuf* pretty)
+{
+    if(version->major > 0 || version->minor > 0 || version->patch > 0)
+        ffStrbufAppendF(pretty, "%u", version->major);
+
+    if(version->minor > 0 || version->patch > 0)
+        ffStrbufAppendF(pretty, ".%u", version->minor);
+
+    if(version->patch > 0)
+        ffStrbufAppendF(pretty, ".%u", version->patch);
 }
 
 void ffParseGTK(FFstrbuf* buffer, const FFstrbuf* gtk2, const FFstrbuf* gtk3, const FFstrbuf* gtk4)

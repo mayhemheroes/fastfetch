@@ -17,6 +17,8 @@ Locale
 LocalIP
 Memory
 OS
+OpenCL
+OpenGL
 Packages
 Player
 Processes
@@ -31,5 +33,6 @@ Theme
 Time
 Title
 Uptime
+Vulkan
 WM
 WMTheme

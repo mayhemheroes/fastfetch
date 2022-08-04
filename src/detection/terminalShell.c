@@ -1,7 +1,12 @@
 #include "fastfetch.h"
+#include "detection/terminalshell.h"
+#include "common/io.h"
+#include "common/parsing.h"
+#include "common/processing.h"
 
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -20,7 +25,7 @@ static void getProcessInformation(const char* pid, FFstrbuf* processName, FFstrb
     ffStrbufAppendS(&cmdlineFilePath, pid);
     ffStrbufAppendS(&cmdlineFilePath, "/cmdline");
 
-    ffGetFileContent(cmdlineFilePath.chars, exe);
+    ffReadFileBuffer(cmdlineFilePath.chars, exe);
     ffStrbufSubstrBeforeFirstC(exe, '\0'); //Trim the arguments
     ffStrbufTrimLeft(exe, '-'); //Happens in TTY
 
@@ -68,12 +73,13 @@ static void getTerminalShell(FFTerminalShellResult* result, const char* pid)
 
     //Common programs that are between terminal and own process, but are not the shell
     if(
-        strcasecmp(name, "sudo")   == 0 ||
-        strcasecmp(name, "su")     == 0 ||
-        strcasecmp(name, "doas")   == 0 ||
-        strcasecmp(name, "strace") == 0 ||
-        strcasecmp(name, "sshd")   == 0 ||
-        strcasecmp(name, "gdb")    == 0
+        strcasecmp(name, "sudo")          == 0 ||
+        strcasecmp(name, "su")            == 0 ||
+        strcasecmp(name, "doas")          == 0 ||
+        strcasecmp(name, "strace")        == 0 ||
+        strcasecmp(name, "sshd")          == 0 ||
+        strcasecmp(name, "gdb")           == 0 ||
+        strcasecmp(name, "guake-wrapped") == 0
     ) {
         getTerminalShell(result, ppid);
         return;
@@ -119,8 +125,17 @@ static void getTerminalFromEnv(FFTerminalShellResult* result)
         term = getenv("SSH_TTY");
 
     //Windows Terminal
-    if(!ffStrSet(term) && getenv("WT_SESSION") != NULL)
-        term = "Windows Terminal";
+    if(!ffStrSet(term) && (
+        getenv("WT_SESSION") != NULL ||
+        getenv("WT_PROFILE_ID") != NULL
+    )) term = "Windows Terminal";
+
+    //Termux
+    if(!ffStrSet(term) && (
+        getenv("TERMUX_VERSION") != NULL ||
+        getenv("TERMUX_MAIN_PACKAGE_FORMAT") != NULL ||
+        getenv("TMUX_TMPDIR") != NULL
+    )) term = "Termux";
 
     //Normal Terminal
     if(!ffStrSet(term))

@@ -23,7 +23,6 @@ void ffStrbufInit(FFstrbuf* strbuf);
 void ffStrbufInitA(FFstrbuf* strbuf, uint32_t allocate);
 void ffStrbufInitCopy(FFstrbuf* strbuf, const FFstrbuf* src);
 
-void ffStrbufEnsureCapacity(FFstrbuf* strbuf, uint32_t capacity);
 void ffStrbufEnsureFree(FFstrbuf* strbuf, uint32_t free);
 
 uint32_t ffStrbufGetFree(const FFstrbuf* strbuf);
@@ -91,8 +90,12 @@ uint32_t ffStrbufCountC(const FFstrbuf* strbuf, char c);
 
 bool ffStrbufRemoveIgnCaseEndS(FFstrbuf* strbuf, const char* end);
 
+void ffStrbufEnsureEndsWithC(FFstrbuf* strbuf, char c);
+
 void ffStrbufWriteTo(const FFstrbuf* strbuf, FILE* file);
 void ffStrbufPutTo(const FFstrbuf* strbuf, FILE* file);
+
+double ffStrbufToDouble(const FFstrbuf* strbuf);
 
 void ffStrbufDestroy(FFstrbuf* strbuf);
 

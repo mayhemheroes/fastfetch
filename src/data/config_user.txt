@@ -6,7 +6,7 @@
 # Empty lines or lines starting with # are ignored.
 
 # This file was shipped with $"FASTFETCH_PROJECT_VERSION$".
-# Use fastfetch --print-config > ~/.config/fastfetch/config.conf to overwrite this with the current defaults
+# Use fastfetch --print-config-user > ~/.config/fastfetch/config.conf to overwrite this file with the current defaults
 
 # Below some often usefull options are listed. Uncomment and modify them so they take affect.
 # Note that there are a lot more options than the ones listed here, take a look at "fastfetch --help".
@@ -120,6 +120,12 @@
 # Use "fastfetch --help color" to learn more and see examples.
 #--color magenta
 
+# Title FQDN option:
+# Sets if the title should use the fully qualified domain name.
+# Must be true or false.
+# Default is false.
+#--title-fqdn false
+
 # Separator option:
 # Sets the string placed between a key and its value.
 # Can be any string.
@@ -150,6 +156,18 @@
 # Must be the exact name of the player or a dbus address (e.g. org.mpris.MediaPlayer2.spotify)
 # Default is the first match starting with org.mpris.MediaPlayer2.
 #--player-name spotify
+
+# Escape bedrock option
+# Sets if fastfetch should escape the bedrock jail, if it detectes that it is running in one
+# Must be true or false.
+# Default is true.
+#--escape-bedrock true
+
+# GL option
+# Sets with opengl context creation library to use
+# Must be either auto, egl, glx or osmesa
+# Default is auto.
+#--gl auto
 
 # Key options:
 # Sets the displayed key of a module
@@ -183,6 +201,9 @@
 #--player-key Media Player
 #--song-key Song
 #--datetime-key Date Time
+#--vulkan-key Vulkan
+#--opengl-key OpenGL
+#--opencl-key OpenCL
 
 # Format options:
 # Sets the format string for module values.
@@ -218,6 +239,47 @@
 #--player-format
 #--song-format
 #--datetime-format
+#--vulkan-format
+#--opengl-format
+#--opencl-format
+
+# Error options:
+# Sets the format string to use if an error occured
+# For information on format strings, see "fastfetch --help format".
+# Each of them take the error as first and only argument.
+# If one of them is set, the module will appear, even if --show-errors is not given.
+#--os-error
+#--host-error
+#--kernel-error
+#--uptime-error
+#--processes-error
+#--packages-error
+#--shell-error
+#--resolution-error
+#--de-error
+#--wm-error
+#--wm-theme-error
+#--theme-error
+#--icons-error
+#--font-error
+#--cursor-error
+#--terminal-error
+#--terminal-font-error
+#--cpu-error
+#--cpu-usage-error
+#--gpu-error
+#--memory-error
+#--disk-error
+#--battery-error
+#--locale-error
+#--local-ip-error
+#--public-ip-error
+#--player-error
+#--song-error
+#--datetime-error
+#--vulkan-error
+#--opengl-error
+#--opencl-error
 
 # Library options:
 # Sets an user specific path to a library to load.
@@ -238,3 +300,7 @@
 #--lib-imagemagick /usr/lib/libMagickCore-7.Q16HDRI.so
 #--lib-z /usr/lib/libz.so
 #--lib-chafa /usr/lib/libchafa.so
+#--lib-egl /usr/lib/libEGL.so
+#--lib-glx /usr/lib/libGLX.so
+#--lib-osmesa /usr/lib/libOSMesa.so
+#--lib-opencl /usr/lib/libOpenCL.so

@@ -1,4 +1,8 @@
 #include "fastfetch.h"
+#include "detection/gtk.h"
+#include "common/properties.h"
+#include "common/settings.h"
+#include "detection/displayserver.h"
 
 #include <pthread.h>
 
@@ -10,7 +14,7 @@ static inline bool allPropertiesSet(FFGTKResult* result)
         result->font.length > 0;
 }
 
-static inline void applyGTKDConfSettings(FFGTKResult* result, const char* themeName, const char* iconsName, const char* fontName, const char* cursorTheme, int cursorSize)
+static inline void applyGTKSettings(FFGTKResult* result, const char* themeName, const char* iconsName, const char* fontName, const char* cursorTheme, int cursorSize)
 {
     if(result->theme.length == 0)
         ffStrbufAppendS(&result->theme, themeName);
@@ -28,7 +32,7 @@ static inline void applyGTKDConfSettings(FFGTKResult* result, const char* themeN
         ffStrbufAppendF(&result->cursorSize, "%i", cursorSize);
 }
 
-static void detectGTKFromDConf(FFinstance* instance, FFGTKResult* result)
+static void detectGTKFromSettings(FFinstance* instance, FFGTKResult* result)
 {
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -45,7 +49,7 @@ static void detectGTKFromDConf(FFinstance* instance, FFGTKResult* result)
     if(init)
     {
         pthread_mutex_unlock(&mutex);
-        applyGTKDConfSettings(result, themeName, iconsName, fontName, cursorTheme, cursorSize);
+        applyGTKSettings(result, themeName, iconsName, fontName, cursorTheme, cursorSize);
         return;
     }
 
@@ -53,7 +57,15 @@ static void detectGTKFromDConf(FFinstance* instance, FFGTKResult* result)
 
     const FFDisplayServerResult* wmde = ffConnectDisplayServer(instance);
 
-    if(ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Cinnamon") == 0)
+    if(ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Xfce") == 0 || ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Xfce4") == 0)
+    {
+        themeName = ffSettingsGetXFConf(instance, "xsettings", "/Net/ThemeName", FF_VARIANT_TYPE_STRING).strValue;
+        iconsName = ffSettingsGetXFConf(instance, "xsettings", "/Net/IconThemeName", FF_VARIANT_TYPE_STRING).strValue;
+        fontName = ffSettingsGetXFConf(instance, "xsettings", "/Gtk/FontName", FF_VARIANT_TYPE_STRING).strValue;
+        cursorTheme = ffSettingsGetXFConf(instance, "xsettings", "/Gtk/CursorThemeName", FF_VARIANT_TYPE_STRING).strValue;
+        cursorSize = ffSettingsGetXFConf(instance, "xsettings", "/Gtk/CursorThemeSize", FF_VARIANT_TYPE_INT).intValue;
+    }
+    else if(ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Cinnamon") == 0)
     {
         themeName = ffSettingsGet(instance, "/org/cinnamon/desktop/interface/gtk-theme", "org.cinnamon.desktop.interface", NULL, "gtk-theme", FF_VARIANT_TYPE_STRING).strValue;
         iconsName = ffSettingsGet(instance, "/org/cinnamon/desktop/interface/icon-theme", "org.cinnamon.desktop.interface", NULL, "icon-theme", FF_VARIANT_TYPE_STRING).strValue;
@@ -69,7 +81,7 @@ static void detectGTKFromDConf(FFinstance* instance, FFGTKResult* result)
         cursorTheme = ffSettingsGet(instance, "/org/mate/peripherals-mouse/cursor-theme", "org.mate.peripherals-mouse", NULL, "cursor-theme", FF_VARIANT_TYPE_STRING).strValue;
         cursorSize = ffSettingsGet(instance, "/org/mate/peripherals-mouse/cursor-size", "org.mate.peripherals-mouse", NULL, "cursor-size", FF_VARIANT_TYPE_INT).intValue;
     }
-    else if(ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Gnome") == 0)
+    else if(ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Gnome") == 0 || ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Unity") == 0 || ffStrbufIgnCaseCompS(&wmde->dePrettyName, "Budgie") == 0)
     {
         themeName = ffSettingsGet(instance, "/org/gnome/desktop/interface/gtk-theme", "org.gnome.desktop.interface", NULL, "gtk-theme", FF_VARIANT_TYPE_STRING).strValue;
         iconsName = ffSettingsGet(instance, "/org/gnome/desktop/interface/icon-theme", "org.gnome.desktop.interface", NULL, "icon-theme", FF_VARIANT_TYPE_STRING).strValue;
@@ -79,7 +91,7 @@ static void detectGTKFromDConf(FFinstance* instance, FFGTKResult* result)
     }
 
     pthread_mutex_unlock(&mutex);
-    applyGTKDConfSettings(result, themeName, iconsName, fontName, cursorTheme, cursorSize);
+    applyGTKSettings(result, themeName, iconsName, fontName, cursorTheme, cursorSize);
 }
 
 static void detectGTKFromConfigFile(const char* filename, FFGTKResult* result)
@@ -95,15 +107,10 @@ static void detectGTKFromConfigFile(const char* filename, FFGTKResult* result)
 
 static void detectGTKFromConfigDir(FFstrbuf* configDir, const char* version, FFGTKResult* result)
 {
-    //In case of an empty env variable
-    ffStrbufTrim(configDir, ' ');
-    if(configDir->length == 0)
-        return;
-
     uint32_t configDirLength = configDir->length;
 
     // <configdir>/gtk-<version>.0/settings.ini
-    ffStrbufAppendS(configDir, "/gtk-");
+    ffStrbufAppendS(configDir, "gtk-");
     ffStrbufAppendS(configDir, version);
     ffStrbufAppendS(configDir, ".0/settings.ini");
     detectGTKFromConfigFile(configDir->chars, result);
@@ -112,7 +119,7 @@ static void detectGTKFromConfigDir(FFstrbuf* configDir, const char* version, FFG
         return;
 
     // <configdir>/gtk-<version>.0/gtkrc
-    ffStrbufAppendS(configDir, "/gtk-");
+    ffStrbufAppendS(configDir, "gtk-");
     ffStrbufAppendS(configDir, version);
     ffStrbufAppendS(configDir, ".0/gtkrc");
     detectGTKFromConfigFile(configDir->chars, result);
@@ -121,7 +128,7 @@ static void detectGTKFromConfigDir(FFstrbuf* configDir, const char* version, FFG
         return;
 
     // <configdir>/gtkrc-<version>.0
-    ffStrbufAppendS(configDir, "/gtkrc-");
+    ffStrbufAppendS(configDir, "gtkrc-");
     ffStrbufAppendS(configDir, version);
     ffStrbufAppendS(configDir, ".0");
     detectGTKFromConfigFile(configDir->chars, result);
@@ -130,7 +137,7 @@ static void detectGTKFromConfigDir(FFstrbuf* configDir, const char* version, FFG
         return;
 
     // <configdir>/.gtkrc-<version>.0
-    ffStrbufAppendS(configDir, "/.gtkrc-");
+    ffStrbufAppendS(configDir, ".gtkrc-");
     ffStrbufAppendS(configDir, version);
     ffStrbufAppendS(configDir, ".0");
     detectGTKFromConfigFile(configDir->chars, result);
@@ -139,27 +146,25 @@ static void detectGTKFromConfigDir(FFstrbuf* configDir, const char* version, FFG
 
 static void detectGTK(FFinstance* instance, const char* version, FFGTKResult* result)
 {
+    //Mate, Cinnamon and Gnome use dconf to save theme config
+    //On other DEs, this will do nothing
+    detectGTKFromSettings(instance, result);
+    if(allPropertiesSet(result))
+        return;
+
     //We need to do this because we use multiple threads on configDirs
-    FFstrbuf baseDirCopy;
-    ffStrbufInitA(&baseDirCopy, 64);
+    FFstrbuf baseDir;
+    ffStrbufInitA(&baseDir, 64);
 
     for(uint32_t i = 0; i < instance->state.configDirs.length; i++)
     {
-        FFstrbuf* baseDir = (FFstrbuf*) ffListGet(&instance->state.configDirs, i);
-        ffStrbufSet(&baseDirCopy, baseDir);
-        detectGTKFromConfigDir(&baseDirCopy, version, result);
+        ffStrbufSet(&baseDir, ffListGet(&instance->state.configDirs, i));
+        detectGTKFromConfigDir(&baseDir, version, result);
         if(allPropertiesSet(result))
-        {
-            ffStrbufDestroy(&baseDirCopy);
-            return;
-        }
+            break;
     }
 
-    ffStrbufDestroy(&baseDirCopy);
-
-    //Mate, Cinnamon and Gnome use dconf to save theme config
-    //On other DEs, this will do nothing
-    detectGTKFromDConf(instance, result);
+    ffStrbufDestroy(&baseDir);
 }
 
 #define FF_DETECT_GTK_IMPL(version) \

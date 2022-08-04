@@ -1,16 +1,22 @@
 #include "fastfetch.h"
+#include "detection/os.h"
+#include "common/properties.h"
+#include "common/parsing.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <pthread.h>
 
-#if !defined(__ANDROID__)
+#if __ANDROID__
+    #include "common/settings.h"
+#else
 
-static void parseFile(const char* fileName, FFOSResult* result)
+static bool parseFile(const char* fileName, FFOSResult* result)
 {
     if(result->id.length > 0 && result->name.length > 0 && result->prettyName.length > 0)
-        return;
+        return true;
 
-    ffParsePropFileValues(fileName, 13, (FFpropquery[]) {
+    return ffParsePropFileValues(fileName, 13, (FFpropquery[]) {
         {"NAME =", &result->name},
         {"DISTRIB_DESCRIPTION =", &result->prettyName},
         {"PRETTY_NAME =", &result->prettyName},
@@ -124,9 +130,8 @@ const FFOSResult* ffDetectOS(const FFinstance* instance)
     {
         parseFile(instance->config.osFile.chars, &result);
     }
-    else if(ffFileExists(FASTFETCH_TARGET_DIR_ROOT"/bedrock/etc/bedrock-release", S_IFDIR)) {
-        parseFile(FASTFETCH_TARGET_DIR_ROOT"/bedrock/etc/bedrock-release", &result);
-
+    else if(instance->config.escapeBedrock && parseFile(FASTFETCH_TARGET_DIR_ROOT"/bedrock/etc/bedrock-release", &result))
+    {
         if(result.id.length == 0)
             ffStrbufAppendS(&result.id, "bedrock");
 

@@ -1,4 +1,5 @@
 #include "fastfetch.h"
+#include "common/library.h"
 
 #include <stdarg.h>
 

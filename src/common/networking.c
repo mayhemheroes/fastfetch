@@ -1,7 +1,8 @@
 #include "fastfetch.h"
+#include "common/networking.h"
 
-#include <sys/types.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <netdb.h>
 

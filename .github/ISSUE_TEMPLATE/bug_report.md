@@ -25,6 +25,9 @@ Output of `fastfetch --load-config devinfo`:
 ```
 
 Output of `fastfetch --load-config devinfo-verbose`:
+<!--
+Note that this output will contain you public IP. If it is not relevant for the issue, feel free to remove it before uploading.
+-->
 ```
 //paste here
 ```
@@ -38,4 +41,3 @@ Output of `fastfetch --list-features`:
 If you get the following error: `Error: couldn't find config: [...]`, copy the files in [presets](../../presets/) to `/usr/share/fastfetch/presets/` or `~/.local/share/fastfetch/presets/`.
 If this isn't possible (or too much work) for you, post the output of `fastfetch --show-errors --recache --multithreading false --disable-linewrap false`. 
 -->
-

@@ -1,4 +1,7 @@
 #include "fastfetch.h"
+#include "common/properties.h"
+
+#include <stdlib.h>
 
 static bool parsePropLinePointer(const char** line, const char* start, FFstrbuf* buffer)
 {
@@ -86,27 +89,30 @@ bool ffParsePropLines(const char* lines, const char* start, FFstrbuf* buffer)
 // The following functions return true if the file was found, independently if start was found
 // Buffers which already contain content are not overwritten
 // The last occurence of start in the first file will be the one used
-// The *Values methods always return true, if all properties were already found before, without testing if the file exists
 
 bool ffParsePropFileValues(const char* filename, uint32_t numQueries, FFpropquery* queries)
 {
-    bool* searchedValues = malloc(sizeof(bool) * numQueries);
+    FILE* file = fopen(filename, "r");
+    if(file == NULL)
+        return false;
+
+    bool valueStorage[4];
+    bool* unsetValues;
+
+    if(numQueries > sizeof(valueStorage) / sizeof(valueStorage[0]))
+        unsetValues = malloc(sizeof(bool) * numQueries);
+    else
+        unsetValues = valueStorage;
+
     bool allSet = true;
     for(uint32_t i = 0; i < numQueries; i++)
     {
-        if((searchedValues[i] = queries[i].buffer->length == 0))
+        if((unsetValues[i] = queries[i].buffer->length == 0))
             allSet = false;
     }
 
     if(allSet)
-    {
-        free(searchedValues);
-        return true;
-    }
-
-    FILE* file = fopen(filename, "r");
-    if(file == NULL)
-        return false;
+        goto done;
 
     char* line = NULL;
     size_t len = 0;
@@ -115,7 +121,7 @@ bool ffParsePropFileValues(const char* filename, uint32_t numQueries, FFpropquer
     {
         for(uint32_t i = 0; i < numQueries; i++)
         {
-            if(!searchedValues[i])
+            if(!unsetValues[i])
                 continue;
 
             uint32_t currentLength = queries[i].buffer->length;
@@ -125,13 +131,13 @@ bool ffParsePropFileValues(const char* filename, uint32_t numQueries, FFpropquer
         }
     }
 
-    free(searchedValues);
-
     if(line != NULL)
         free(line);
 
+done:
     fclose(file);
-
+    if(unsetValues != valueStorage)
+        free(unsetValues);
     return true;
 }
 
@@ -164,20 +170,17 @@ bool ffParsePropFileConfigValues(const FFinstance* instance, const char* relativ
 {
     bool foundAFile = false;
 
+    FFstrbuf baseDir;
+    ffStrbufInitA(&baseDir, 64);
+
     for(uint32_t i = 0; i < instance->state.configDirs.length; i++)
     {
-        FFstrbuf* baseDir = (FFstrbuf*) ffListGet(&instance->state.configDirs, i);
-        uint32_t baseDirLength = baseDir->length;
+        //We need to copy the config dir each time, because it used by multiple threads, so we can't directly write to it.
+        ffStrbufSet(&baseDir, ffListGet(&instance->state.configDirs, i));
+        ffStrbufAppendS(&baseDir, relativeFile);
 
-        if(*relativeFile != '/')
-            ffStrbufAppendC(baseDir, '/');
-
-        ffStrbufAppendS(baseDir, relativeFile);
-
-        if(ffParsePropFileValues(baseDir->chars, numQueries, queries))
+        if(ffParsePropFileValues(baseDir.chars, numQueries, queries))
             foundAFile = true;
-
-        ffStrbufSubstrBefore(baseDir, baseDirLength);
 
         bool allSet = true;
         for(uint32_t k = 0; k < numQueries; k++)
@@ -192,6 +195,8 @@ bool ffParsePropFileConfigValues(const FFinstance* instance, const char* relativ
         if(allSet)
             break;
     }
+
+    ffStrbufDestroy(&baseDir);
 
     return foundAFile;
 }

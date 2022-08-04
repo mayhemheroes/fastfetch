@@ -1,20 +1,13 @@
-cmake_minimum_required(VERSION 3.1.0) # Threads::Threads
+cmake_minimum_required(VERSION 3.12.0) # target_link_libraries with OBJECT libs
 
 project(fastfetch
-    VERSION 1.4.3
+    VERSION 1.6.1
     LANGUAGES C
 )
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-
-find_package(PkgConfig REQUIRED)
-
-# This is set to off by github actions for release builds
-OPTION(SET_TWEAK "Add tweak to project version" ON)
-
-# Also create test executables
-OPTION(BUILD_TESTS "Build tests" OFF)
+#####################
+# Configure options #
+#####################
 
 OPTION(ENABLE_LIBPCI "Enable libpci" ON)
 OPTION(ENABLE_VULKAN "Enable vulkan" ON)
@@ -33,15 +26,44 @@ OPTION(ENABLE_IMAGEMAGICK7 "Enable imagemagick 7" ON)
 OPTION(ENABLE_IMAGEMAGICK6 "Enable imagemagick 6" ON)
 OPTION(ENABLE_ZLIB "Enable zlib" ON)
 OPTION(ENABLE_CHAFA "Enable chafa" ON)
+OPTION(ENABLE_EGL "Enable egl" ON)
+OPTION(ENABLE_GLX "Enable glx" ON)
+OPTION(ENABLE_OSMESA "Enable osmesa" ON)
+OPTION(ENABLE_OPENCL "Enable opencl" ON)
+
+OPTION(BUILD_TESTS "Build tests" OFF) # Also create test executables
+OPTION(SET_TWEAK "Add tweak to project version" ON) # This is set to off by github actions for release builds
+
+#############################
+# Compile time dependencies #
+#############################
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+find_package(PkgConfig REQUIRED)
+
+####################
+# Compiler options #
+####################
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wconversion")
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-Wl,-O3")
 
-# These variables are mainly here for android, which has a different root fs structure.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_SUPPORTED)
+if(IPO_SUPPORTED)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+#######################
+# Target FS structure #
+#######################
+
 if(NOT TARGET_DIR_ROOT)
     if(NOT ANDROID)
         set(TARGET_DIR_ROOT "")
@@ -66,15 +88,10 @@ if(NOT TARGET_DIR_HOME)
     endif()
 endif()
 
-function(fastfetch_load_text FILENAME OUTVAR)
-    file(READ "${FILENAME}" TEMP)
-    string(REPLACE "\n" "\\n" TEMP "${TEMP}")
-    string(REPLACE "\"" "\\\"" TEMP "${TEMP}")
-    string(REPLACE "$\\" "" TEMP "${TEMP}")
-    set("${OUTVAR}" "${TEMP}" PARENT_SCOPE)
-endfunction(fastfetch_load_text)
+#################
+# Tweak version #
+#################
 
-# Track commits between version bumps for output in --version
 if (SET_TWEAK AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
     execute_process(
         COMMAND git describe --tags
@@ -85,24 +102,42 @@ if (SET_TWEAK AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
     string(REGEX MATCH "-[0-9]+" PROJECT_VERSION_TWEAK "${PROJECT_VERSION_TWEAK}")
 endif()
 
+#############
+# Text data #
+#############
+
+function(fastfetch_load_text FILENAME OUTVAR)
+    file(READ "${FILENAME}" TEMP)
+    string(REPLACE "\n" "\\n" TEMP "${TEMP}")
+    string(REPLACE "\"" "\\\"" TEMP "${TEMP}")
+    string(REPLACE "$\\" "" TEMP "${TEMP}")
+    set("${OUTVAR}" "${TEMP}" PARENT_SCOPE)
+endfunction(fastfetch_load_text)
+
 fastfetch_load_text(src/data/structure.txt DATATEXT_STRUCTURE)
-fastfetch_load_text(src/data/config.txt DATATEXT_CONFIG)
+fastfetch_load_text(src/data/config_system.txt DATATEXT_CONFIG_SYSTEM)
+fastfetch_load_text(src/data/config_user.txt DATATEXT_CONFIG_USER)
 fastfetch_load_text(src/data/modules.txt DATATEXT_MODULES)
 fastfetch_load_text(src/data/help.txt DATATEXT_HELP)
 fastfetch_load_text(src/data/help_color.txt DATATEXT_HELP_COLOR)
 fastfetch_load_text(src/data/help_format.txt DATATEXT_HELP_FORMAT)
 fastfetch_load_text(src/data/help_config.txt DATATEXT_HELP_CONFIG)
 
+######################
+# Configure config.h #
+######################
+
 configure_file(src/fastfetch_config.h.in fastfetch_config.h)
 
-# Init CMake targets
+#######################
+# libfastfetch target #
+#######################
 
-add_library(libfastfetch STATIC
+add_library(libfastfetch OBJECT
     src/util/FFstrbuf.c
     src/util/FFlist.c
     src/util/FFvaluestore.c
     src/common/init.c
-    src/common/threading.c
     src/common/io.c
     src/common/printing.c
     src/common/caching.c
@@ -120,11 +155,14 @@ add_library(libfastfetch STATIC
     src/logo/image/im7.c
     src/logo/image/im6.c
     src/detection/os.c
-    src/detection/plasma.c
+    src/detection/qt.c
     src/detection/gtk.c
     src/detection/terminalShell.c
+    src/detection/vulkan.c
     src/detection/media.c
     src/detection/datetime.c
+    src/detection/temps.c
+    src/detection/title.c
     src/detection/displayserver/displayServer.c
     src/detection/displayserver/wayland.c
     src/detection/displayserver/xcb.c
@@ -158,6 +196,7 @@ add_library(libfastfetch STATIC
     src/modules/disk.c
     src/modules/battery.c
     src/modules/locale.c
+    src/modules/vulkan.c
     src/modules/localip.c
     src/modules/publicip.c
     src/modules/player.c
@@ -166,6 +205,8 @@ add_library(libfastfetch STATIC
     src/modules/date.c
     src/modules/time.c
     src/modules/colors.c
+    src/modules/opengl.c
+    src/modules/opencl.c
 )
 
 if(ENABLE_LIBPCI)
@@ -333,11 +374,51 @@ if(ENABLE_ZLIB)
 endif()
 
 if(ENABLE_CHAFA)
-    pkg_check_modules(CHAFA chafa>=1.10)
-    if(CHAFA_FOUND)
-        target_compile_definitions(libfastfetch PRIVATE FF_HAVE_CHAFA=1)
+    if(IMAGEMAGICK6_FOUND OR IMAGEMAGICK7_FOUND)
+        pkg_check_modules(CHAFA chafa>=1.10)
+        if(CHAFA_FOUND)
+            target_compile_definitions(libfastfetch PRIVATE FF_HAVE_CHAFA=1)
+        else()
+            message(WARNING "Package chafa>=1.10 not found. Building without support.")
+        endif()
     else()
-        message(WARNING "Package chafa>=1.10 not found. Building without support.")
+        message(WARNING "Chafa not enabled, because neither ImageMagick6 nor ImageMagick7 were found. Building without support.")
+    endif()
+endif()
+
+if(ENABLE_EGL)
+    pkg_check_modules(EGL egl)
+    if(EGL_FOUND)
+        target_compile_definitions(libfastfetch PRIVATE FF_HAVE_EGL=1)
+    else()
+        message(WARNING "Package egl not found. Building without support.")
+    endif()
+endif()
+
+if(ENABLE_GLX)
+    pkg_check_modules(GLX glx)
+    if(GLX_FOUND)
+        target_compile_definitions(libfastfetch PRIVATE FF_HAVE_GLX=1)
+    else()
+        message(WARNING "Package glx not found. Building without support.")
+    endif()
+endif()
+
+if(ENABLE_OSMESA)
+    pkg_check_modules(OSMESA osmesa)
+    if(OSMESA_FOUND)
+        target_compile_definitions(libfastfetch PRIVATE FF_HAVE_OSMESA=1)
+    else()
+        message(WARNING "Package osmesa not found. Building without support.")
+    endif()
+endif()
+
+if(ENABLE_OPENCL)
+    pkg_check_modules(OPENCL OpenCL)
+    if(OPENCL_FOUND)
+        target_compile_definitions(libfastfetch PRIVATE FF_HAVE_OPENCL=1)
+    else()
+        message(WARNING "Package opencl not found. Building without support.")
     endif()
 endif()
 
@@ -362,6 +443,11 @@ target_include_directories(libfastfetch
     PRIVATE ${IMAGEMAGICK6_INCLUDE_DIRS}
     PRIVATE ${ZLIB_INCLUDE_DIRS}
     PRIVATE ${CHAFA_INCLUDE_DIRS}
+    PRIVATE ${VULKAN_INCLUDE_DIRS}
+    PRIVATE ${EGL_INCLUDE_DIRS}
+    PRIVATE ${GLX_INCLUDE_DIRS}
+    PRIVATE ${OSMESA_INCLUDE_DIRS}
+    PRIVATE ${OPENCL_INCLUDE_DIRS}
 )
 
 target_link_libraries(libfastfetch
@@ -369,7 +455,9 @@ target_link_libraries(libfastfetch
     PRIVATE Threads::Threads
 )
 
-set_target_properties(libfastfetch PROPERTIES OUTPUT_NAME "fastfetch")
+######################
+# Executable targets #
+######################
 
 add_executable(fastfetch
     src/fastfetch.c
@@ -385,16 +473,11 @@ target_link_libraries(flashfetch
     PRIVATE libfastfetch
 )
 
-# Testing
+###################
+# Testing targets #
+###################
 
 if (BUILD_TESTS)
-    add_executable(fastfetch-test-performance
-        tests/performance.c
-    )
-    target_link_libraries(fastfetch-test-performance
-        PRIVATE libfastfetch
-    )
-
     add_executable(fastfetch-test-strbuf
         tests/strbuf.c
     )
@@ -406,39 +489,54 @@ if (BUILD_TESTS)
     add_test(NAME test-strbuf COMMAND fastfetch-test-strbuf)
 endif()
 
-# Installation
+##################
+# install target #
+##################
+
+#https://cmake.org/cmake/help/latest/variable/CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT.html
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${TARGET_DIR_USR}" CACHE PATH "..." FORCE)
+endif()
+
+if(NOT CMAKE_INSTALL_SYSCONFDIR)
+    set(CMAKE_INSTALL_SYSCONFDIR "${TARGET_DIR_ROOT}/etc")
+endif()
 
 include(GNUInstallDirs)
 
 install(
-    TARGETS fastfetch
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    TARGETS fastfetch flashfetch
+    DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 
 install(
-    TARGETS flashfetch
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    FILES "${CMAKE_SOURCE_DIR}/src/data/config_system.txt"
+    DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}/${CMAKE_PROJECT_NAME}"
+    RENAME "config.conf"
 )
 
 install(
-    FILES completions/bash
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/bash-completion/completions
-    RENAME ${CMAKE_PROJECT_NAME}
+    FILES "${CMAKE_SOURCE_DIR}/completions/bash"
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/bash-completion/completions"
+    RENAME "${CMAKE_PROJECT_NAME}"
 )
 
 install(
-    DIRECTORY presets
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${CMAKE_PROJECT_NAME}
+    DIRECTORY "${CMAKE_SOURCE_DIR}/presets/"
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/${CMAKE_PROJECT_NAME}"
 )
 
 install(
-    FILES ./LICENSE
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/licenses/${CMAKE_PROJECT_NAME}
+    FILES "${CMAKE_SOURCE_DIR}/LICENSE"
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/${CMAKE_PROJECT_NAME}"
 )
 
-# Packaging
+##################
+# package target #
+##################
 
 set(CPACK_GENERATOR "DEB;RPM;TGZ;ZIP")
+set(CPACK_SET_DESTDIR ON)
 
 set(CPACK_PACKAGE_CONTACT "Linus Dierheimer <Linus@Dierheimer.de>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Neofetch clone written in C")
@@ -451,21 +549,6 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/LinusDierheimer")
 set(CPACK_DEBIAN_PACKAGE_SECTION, "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6")
-set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "\
-libpci3, \
-libvulkan1, \
-libwayland-client0, \
-libxcb-randr0, \
-xcb, \
-libxrandr2, \
-libx11-6, \
-libdconf1, \
-libglib2.0-0, \
-libdbus-1-3, \
-libxfconf-0-3, \
-libmagickcore-6.q16hdri-6, \
-zlib1g \
-")
 
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 

@@ -1,25 +1,12 @@
 #include "logo.h"
 
-#include <limits.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-
-typedef struct FFlogo
-{
-    const char* data;
-    const char** names; //Null terminated
-    const char** builtinColors; //Null terminated
-    bool performColorReplacement;
-} FFlogo;
-
 #define FF_LOGO_INIT static FFlogo logo; static bool init = false; if(init) return &logo; init = true;
 #define FF_LOGO_NAMES(...) static const char* names[] = (const char*[]) { __VA_ARGS__, NULL }; logo.names = names;
 #define FF_LOGO_LINES(x) logo.data = x;
 #define FF_LOGO_COLORS(...) static const char* colors[] = (const char*[]) { __VA_ARGS__, NULL }; logo.builtinColors = colors;
 #define FF_LOGO_RETURN return &logo;
 
-static const FFlogo* getLogoUnknown()
+const FFlogo* ffLogoBuiltinGetUnknown()
 {
     FF_LOGO_INIT
     FF_LOGO_NAMES("unknown", "question mark", "?")
@@ -53,6 +40,56 @@ static const FFlogo* getLogoNone()
     FF_LOGO_NAMES("none", "empty", "")
     FF_LOGO_LINES("")
     FF_LOGO_COLORS("")
+    FF_LOGO_RETURN
+}
+
+static const FFlogo* getLogoAlpine()
+{
+    FF_LOGO_INIT
+    FF_LOGO_NAMES("alpine", "alpinelinux", "alpine-linux")
+    FF_LOGO_LINES(
+        "       .hddddddddddddddddddddddh.\n"
+        "      :dddddddddddddddddddddddddd:\n"
+        "     /dddddddddddddddddddddddddddd/\n"
+        "    +dddddddddddddddddddddddddddddd+\n"
+        "  `sdddddddddddddddddddddddddddddddds`\n"
+        " `ydddddddddddd++hdddddddddddddddddddy`\n"
+        ".hddddddddddd+`  `+ddddh:-sdddddddddddh.   \n"
+        "hdddddddddd+`      `+y:    .sddddddddddh\n"
+        "ddddddddh+`   `//`   `.`     -sddddddddd\n"
+        "ddddddh+`   `/hddh/`   `:s-    -sddddddd\n"
+        "ddddh+`   `/+/dddddh/`   `+s-    -sddddd\n"
+        "ddd+`   `/o` :dddddddh/`   `oy-    .yddd\n"
+        "hdddyo+ohddyosdddddddddho+oydddy++ohdddh\n"
+        ".hddddddddddddddddddddddddddddddddddddh.\n"
+        " `yddddddddddddddddddddddddddddddddddy`\n"
+        "  `sdddddddddddddddddddddddddddddddds`\n"
+        "    +dddddddddddddddddddddddddddddd+\n"
+        "     /dddddddddddddddddddddddddddd/\n"
+        "      :dddddddddddddddddddddddddd:\n"
+        "       .hddddddddddddddddddddddh.";
+    )
+    FF_LOGO_COLORS(
+        "34" //blue
+    )
+    FF_LOGO_RETURN
+}
+
+static const FFlogo* getLogoAlpineSmall()
+{
+    FF_LOGO_INIT
+    FF_LOGO_NAMES("alpine_small", "alpine-linux-small")
+    FF_LOGO_LINES(
+        "   /\\ /\\\n"
+        "  // \\  \\\n"
+        " //   \\  \\\n"
+        "///    \\  \\\n"
+        "//      \\  \\\n"
+        "         \\"
+    )
+    FF_LOGO_COLORS(
+        "34" //blue
+    )
     FF_LOGO_RETURN
 }
 
@@ -168,18 +205,18 @@ static const FFlogo* getLogoArtix()
         "              'oookkxxoo'\n"
         "             'oiioxkkxxoo'\n"
         "            ':;:iiiioxxxoo'\n"
-        "              `'.;::ioxxoo''\n"
+        "               `'.;::ioxxoo'\n"
         "          '-.      `':;jiooo'\n"
-        "        'oooio-..     `'i:io'\n"
-        "       'ooooxxxxoio:,.   `'-;'\n"
-        "      'ooooxxxxxkkxoooIi:-.  `'\n"
-        "     'ooooxxxxxkkkkxoiiiiiji'\n"
-        "    'ooooxxxxxkxxoiiii:'`     .i'\n"
-        "   'ooooxxxxxoi:::'`       .;ioxo'\n"
-        "  'ooooxooi::'`         .:iiixkxxo'\n"
-        " 'ooooi:'`                `'';ioxxo'\n"
-        "'i:'`                          '':io'\n"
-        "'`                                  `'";
+        "         'oooio-..     `'i:io'\n"
+        "        'ooooxxxxoio:,.   `'-;'\n"
+        "       'ooooxxxxxkkxoooIi:-.  `'\n"
+        "      'ooooxxxxxkkkkxoiiiiiji'\n"
+        "     'ooooxxxxxkxxoiiii:'`     .i'\n"
+        "    'ooooxxxxxoi:::'`       .;ioxo'\n"
+        "   'ooooxooi::'`         .:iiixkxxo'\n"
+        "  'ooooi:'`                `'';ioxxo'\n"
+        " 'i:'`                          '':io'\n"
+        "'`                                   `'";
     )
     FF_LOGO_COLORS(
         "36" //cyan
@@ -738,6 +775,27 @@ static const FFlogo* getLogoKDENeon()
     FF_LOGO_RETURN
 }
 
+static const FFlogo* getLogoKISSLinux()
+{
+    FF_LOGO_INIT
+    FF_LOGO_NAMES("kiss", "kiss-linux", "kisslinux")
+    FF_LOGO_LINES(
+        "   $3 ___     \n"
+        "   ($2.· $3|     \n"
+        "   ($1<> $3|     \n"
+        "  / $2__$3  \\    \n"
+        " ( $1/  \\ $3/|   \n"
+        "$1_$3/\\ $2__)$3/$1_$3)   \n"
+        "$1\\/$3-____$1\\/$2    \n"
+    )
+    FF_LOGO_COLORS(
+        "35", //magenta
+        "37", //white
+        "34" //blue
+    )
+    FF_LOGO_RETURN
+}
+
 static const FFlogo* getLogoKubuntu()
 {
     FF_LOGO_INIT
@@ -763,6 +821,32 @@ static const FFlogo* getLogoKubuntu()
         "      -oyyyyyyy$2dMMy$1yyyyyysosyyyyo-\n"
         "        ./oyyyyyyyyyyyyyyyyyyo/.\n"
         "           `.:/oosyyyysso/:.`"
+    )
+    FF_LOGO_COLORS(
+        "34", //blue
+        "37" //white
+    )
+    FF_LOGO_RETURN
+}
+
+static const FFlogo* getLogoLangitKetujuh()
+{
+    FF_LOGO_INIT
+    FF_LOGO_NAMES("l7", "langitketujuh", "LangitKetujuh")
+    FF_LOGO_LINES(
+	"\n"
+	"\n"
+	"   $2. '7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7\n"
+	"   $2L7.   '7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7\n"
+	"   $2L7L7L      7L7L7L7L7L7L7L7L7L7L7L7L7L7\n"
+	"   $2L7L7L7                          L7L7L7\n"
+	"   $2L7L7L7           'L7L7L7L7L7L7L7L7L7L7\n"
+	"   $2L7L7L7               'L7L7L7L7L7L7L7L7\n"
+	"   $2L7L7L7                   'L7L7L7L7L7L7\n"
+	"   $2L7L7L7                          L7L7L7\n"
+	"   $2L7L7L7L7L7L7L7L7L7L7LL7L7L7.    '7L7L7\n"
+	"   $2L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L.   'L7\n"
+	"   $2L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7L7.  '\n"
     )
     FF_LOGO_COLORS(
         "34", //blue
@@ -961,25 +1045,34 @@ static const FFlogo* getLogoNixOsOld()
     FF_LOGO_INIT
     FF_LOGO_NAMES("nixos_old", "nix-old", "nixos-old", "nix_old", "nix-os-old", "nix_os_old")
     FF_LOGO_LINES(
-        "$1          ::::.    $2':::::     ::::'\n"
-        "$1          ':::::    $2':::::.  ::::'\n"
-        "$1            :::::     $2'::::.:::::\n"
-        "$1      .......:::::..... $2::::::::\n"
-        "$1     ::::::::::::::::::. $2::::::    $1::::.\n"
-        "    ::::::::::::::::::::: $2:::::.  $1.::::'\n"
-        "$2           .....           ::::' $1:::::'\n"
-        "$2          :::::            '::' $1:::::'\n"
-        "$2 ........:::::               ' $1:::::::::::.\n"
-        "$2:::::::::::::                 $1:::::::::::::\n"
-        "$2 ::::::::::: $1..              $1:::::\n"
-        "$2     .::::: $1.:::            $1:::::\n"
-        "$2    .:::::  $1:::::          $1'''''    $2.....\n"
-        "    :::::   $1':::::.  $2......:::::::::::::'\n"
-        "     :::     $1::::::. $2':::::::::::::::::'\n"
-        "$1            .:::::::: $2'::::::::::\n"
-        "$1           .::::''::::.     $2'::::.\n"
-        "$1          .::::'   ::::.     $2'::::.\n"
-        "$1         .::::      ::::      $2'::::."
+        "$1              ____       $2_______        ____\n"
+        "$1             /####\\      $2\\######\\      /####\\\n"
+        "$1             ######\\      $2\\######\\    /#####/\n"
+        "$1             \\######\\      $2\\######\\  /#####/\n"
+        "$1              \\######\\      $2\\######\\/#####/    $1/\\\n"
+        "$1               \\######\\      $2\\###########/    $1/##\\\n"
+        "$1        ________\\######\\______$2\\#########/    $1/####\\\n"
+        "$1       /#######################$2\\#######/    $1/######\n"
+        "$1      /#########################$2\\######\\   $1/######/\n"
+        "$1     /###########################$2\\######\\ $1/######/\n"
+        "$1     ¯¯¯¯¯¯¯¯¯¯¯¯$2/######/$1¯¯¯¯¯¯¯¯¯$2\\######$1/######/\n"
+        "$2                /######/           $2\\####$1/######/________\n"
+        "$2  _____________/######/             $2\\##$1/################\\\n"
+        "$2 /###################/               $2\\$1/##################\\\n"
+        "$2 \\##################/$1\\               /###################/\n"
+        "$2  \\################/$1##\\             /######/¯¯¯¯¯¯¯¯¯¯¯¯¯\n"
+        "$2   ¯¯¯¯¯¯¯¯/######/$1####\\           /######/\n"
+        "$2          /######/$1######\\$2_________$1/######/$2____________\n"
+        "$2         /######/ $1\\######\\$2###########################/\n"
+        "$2        /######/   $1\\######\\$2#########################/\n"
+        "$2        ######/    $1/#######\\$2#######################/\n"
+        "$2        \\####/    $1/#########\\$2¯¯¯¯¯¯\\######\\¯¯¯¯¯¯¯¯\n"
+        "$2         \\##/    $1/###########\\$2      \\######\\\n"
+        "$2          \\/    $1/#####/\\######\\$2      \\######\\\n"
+        "$1               $1/#####/  \\######\\$2      \\######\\\n"
+        "$1              $1/#####/    \\######\\$2      \\######\n"
+        "$1              $1\\####/      \\######\\$2      \\####/\n"
+        "$1               $1¯¯¯¯        ¯¯¯¯¯¯¯$2       ¯¯¯¯"
     )
     FF_LOGO_COLORS(
         "34", //blue
@@ -1312,6 +1405,38 @@ static const FFlogo* getLogoRockyLinux()
     FF_LOGO_RETURN
 }
 
+static const FFlogo* getLogoRosaLinux()
+{
+    FF_LOGO_INIT
+    FF_LOGO_NAMES("rosa", "rosa-linux", "rosalinux")
+    FF_LOGO_LINES(
+        "            ROSAROSAROSAROSAR\n"
+        "        ROSA               AROS\n"
+        "      ROS   SAROSAROSAROSAR   AROS\n"
+        "    RO   ROSAROSAROSAROSAROSAR   RO\n"
+        "  ARO  AROSAROSAROSARO      AROS  ROS\n"
+        " ARO  ROSAROS         OSAR   ROSA  ROS\n"
+        " RO  AROSA   ROSAROSAROSA    ROSAR  RO\n"
+        "RO  ROSAR  ROSAROSAROSAR  R  ROSARO  RO\n"
+        "RO  ROSA  AROSAROSAROSA  AR  ROSARO  AR\n"
+        "RO AROS  ROSAROSAROSA   ROS  AROSARO AR\n"
+        "RO AROS  ROSAROSARO   ROSARO  ROSARO AR\n"
+        "RO  ROS  AROSAROS   ROSAROSA AROSAR  AR\n"
+        "RO  ROSA  ROS     ROSAROSAR  ROSARO  RO\n"
+        " RO  ROS     AROSAROSAROSA  ROSARO  AR\n"
+        " ARO  ROSA   ROSAROSAROS   AROSAR  ARO\n"
+        "  ARO  OROSA      R      ROSAROS  ROS\n"
+        "    RO   AROSAROS   AROSAROSAR   RO\n"
+        "     AROS   AROSAROSAROSARO   AROS\n"
+        "        ROSA               SARO\n"
+        "           ROSAROSAROSAROSAR"
+    )
+    FF_LOGO_COLORS(
+        "34" //blue
+    )
+    FF_LOGO_RETURN
+}
+
 static const FFlogo* getLogoUbuntu()
 {
     FF_LOGO_INIT
@@ -1442,13 +1567,13 @@ static const FFlogo* getLogoZorin()
     FF_LOGO_RETURN
 }
 
-typedef const FFlogo*(*GetLogoMethod)();
-
-static GetLogoMethod* getLogos()
+GetLogoMethod* ffLogoBuiltinGetAll()
 {
     static GetLogoMethod logoMethods[] = {
+        ffLogoBuiltinGetUnknown,
         getLogoNone,
-        getLogoUnknown,
+        getLogoAlpine,
+        getLogoAlpineSmall,
         getLogoAndroid,
         getLogoAndroidSmall,
         getLogoArch,
@@ -1474,7 +1599,9 @@ static GetLogoMethod* getLogos()
         getLogoGentoo,
         getLogoGentooSmall,
         getLogoKDENeon,
+        getLogoKISSLinux,
         getLogoKubuntu,
+        getLogoLangitKetujuh,
         getLogoLinux,
         getLogoManjaro,
         getLogoManjaroSmall,
@@ -1495,6 +1622,7 @@ static GetLogoMethod* getLogos()
         getLogoRedHatEnterpriseLinux,
         getLogoRedstarOS,
         getLogoRockyLinux,
+        getLogoRosaLinux,
         getLogoUbuntu,
         getLogoUbuntuSmall,
         getLogoVoid,
@@ -1504,188 +1632,4 @@ static GetLogoMethod* getLogos()
     };
 
     return logoMethods;
-}
-
-static bool logoHasName(const FFlogo* logo, const char* name)
-{
-    const char** logoName = logo->names;
-
-    while(*logoName != NULL)
-    {
-        if(strcasecmp(*logoName, name) == 0)
-            return true;
-        ++logoName;
-    }
-
-    return false;
-}
-
-static const FFlogo* getBuiltinLogo(const char* name)
-{
-    GetLogoMethod* methods = getLogos();
-
-    while(*methods != NULL)
-    {
-        const FFlogo* logo = (*methods)();
-        if(logoHasName(logo, name))
-            return logo;
-        ++methods;
-    }
-
-    return NULL;
-}
-
-static const FFlogo* detectBuiltinLogoWithVersion(const FFstrbuf* versionString, const FFstrbuf* name)
-{
-    if(versionString->length == 0)
-        return getBuiltinLogo(name->chars);
-
-    #define FF_PRINT_LOGO_VERSIONED_IF_EXISTS(newLogo, oldLogo, ver) \
-        if(logoHasName(newLogo, name->chars)) \
-        { \
-            long version = strtol(versionString->chars, NULL, 10); \
-            return (version == 0 || version == LONG_MAX || version == LONG_MIN || version >= ver) ? newLogo : oldLogo; \
-        }
-
-    FF_PRINT_LOGO_VERSIONED_IF_EXISTS(getLogoFedora(), getLogoFedoraOld(), 34)
-    FF_PRINT_LOGO_VERSIONED_IF_EXISTS(getLogoMint(), getLogoMintOld(), 19)
-
-    return getBuiltinLogo(name->chars);
-}
-
-static const FFlogo* detectBuiltinLogo(const FFinstance* instance)
-{
-    static const FFlogo* logo;
-    static bool detected = false;
-    if(detected)
-        return logo;
-
-    detected = true;
-
-    const FFOSResult* os = ffDetectOS(instance);
-
-    logo = detectBuiltinLogoWithVersion(&os->version, &os->name);
-    if(logo != NULL)
-        return logo;
-
-    logo = detectBuiltinLogoWithVersion(&os->version, &os->id);
-    if(logo != NULL)
-        return logo;
-
-    logo = detectBuiltinLogoWithVersion(&os->version, &os->idLike);
-    if(logo != NULL)
-        return logo;
-
-    logo = detectBuiltinLogoWithVersion(&os->version, &os->systemName);
-    if(logo != NULL)
-        return logo;
-
-    return getLogoUnknown();
-}
-
-void ffLogoSetMainColor(FFinstance* instance)
-{
-    const FFlogo* logo = NULL;
-
-    if(instance->config.logoSource.length > 0)
-       logo = getBuiltinLogo(instance->config.logoSource.chars);
-
-    if(logo == NULL)
-        logo = detectBuiltinLogo(instance);
-
-    ffStrbufAppendS(&instance->config.mainColor, logo->builtinColors[0]);
-}
-
-static void printLogoStruct(FFinstance* instance, const FFlogo* logo, bool doColorReplacement)
-{
-    if(!doColorReplacement)
-    {
-        ffLogoPrint(instance, logo->data, false);
-        return;
-    }
-
-    const char** colors = logo->builtinColors;
-    for(int i = 0; *colors != NULL && i < FASTFETCH_LOGO_MAX_COLORS; i++, colors++)
-    {
-        if(instance->config.logoColors[i].length == 0)
-            ffStrbufAppendS(&instance->config.logoColors[i], *colors);
-    }
-
-    ffLogoPrint(instance, logo->data, true);
-}
-
-void ffLogoPrintUnknown(FFinstance* instance)
-{
-    printLogoStruct(instance, getLogoUnknown(), false);
-}
-
-bool ffLogoPrintBuiltinIfExists(FFinstance* instance)
-{
-    const FFlogo* logo = getBuiltinLogo(instance->config.logoSource.chars);
-    if(logo == NULL)
-        return false;
-
-    printLogoStruct(instance, logo, true);
-    return true;
-}
-
-void ffLogoPrintBuiltinDetected(FFinstance* instance)
-{
-    printLogoStruct(instance, detectBuiltinLogo(instance), true);
-}
-
-void ffPrintBuiltinLogos(FFinstance* instance)
-{
-    GetLogoMethod* methods = getLogos();
-
-    while(*methods != NULL)
-    {
-        const FFlogo* logo = (*methods)();
-        printf("\033[%sm%s:\033[0m\n", logo->builtinColors[0], logo->names[0]);
-        printLogoStruct(instance, logo, true);
-        ffPrintRemainingLogo(instance);
-
-        instance->state.logoHeight = 0;
-        for(uint8_t i = 0; i < FASTFETCH_LOGO_MAX_COLORS; i++)
-            ffStrbufClear(&instance->config.logoColors[i]);
-
-        puts("\n");
-        ++methods;
-    }
-}
-
-void ffListBuiltinLogos()
-{
-    GetLogoMethod* methods = getLogos();
-
-    uint32_t counter = 0;
-
-    while(*methods != NULL)
-    {
-        const FFlogo* logo = (*methods)();
-        const char** names = logo->names;
-
-        printf("%u)%s ", counter, counter < 10 ? " " : "");
-        ++counter;
-
-        while(*names != NULL)
-        {
-            printf("\"%s\" ", *names);
-            ++names;
-        }
-
-        putchar('\n');
-        ++methods;
-    }
-}
-
-void ffListBuiltinLogosAutocompletion()
-{
-    GetLogoMethod* methods = getLogos();
-
-    while(*methods != NULL)
-    {
-        printf("%s\n", (*methods)()->names[0]);
-        ++methods;
-    }
 }

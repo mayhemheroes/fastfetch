@@ -1,4 +1,5 @@
 #include "fastfetch.h"
+#include "detection/media.h"
 
 #include <string.h>
 #include <pthread.h>
@@ -7,6 +8,8 @@
 #define FF_DBUS_TIMEOUT_MILLISECONDS 35
 
 #ifdef FF_HAVE_DBUS
+#include "common/library.h"
+#include "common/parsing.h"
 #include <dbus/dbus.h>
 
 #define FF_DBUS_ITER_CONTINUE(iterator) \

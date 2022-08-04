@@ -1,4 +1,6 @@
 #include "fastfetch.h"
+#include "common/printing.h"
+#include "detection/media.h"
 
 #include <ctype.h>
 
@@ -11,7 +13,7 @@ void ffPrintPlayer(FFinstance* instance)
 
     if(media->player.length == 0)
     {
-        ffPrintError(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.playerKey, &instance->config.playerFormat, FF_PLAYER_NUM_FORMAT_ARGS, "No media player found");
+        ffPrintError(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.player, "No media player found");
         return;
     }
 
@@ -50,14 +52,14 @@ void ffPrintPlayer(FFinstance* instance)
     if(playerPrettyIsCustom)
         ffStrbufAppendC(&playerPretty, ')');
 
-    if(instance->config.playerFormat.length == 0)
+    if(instance->config.player.outputFormat.length == 0)
     {
-        ffPrintLogoAndKey(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.playerKey);
+        ffPrintLogoAndKey(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.player.key);
         ffStrbufPutTo(&playerPretty, stdout);
     }
     else
     {
-        ffPrintFormatString(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.playerKey, &instance->config.playerFormat, NULL, FF_PLAYER_NUM_FORMAT_ARGS, (FFformatarg[]){
+        ffPrintFormat(instance, FF_PLAYER_MODULE_NAME, 0, &instance->config.player, FF_PLAYER_NUM_FORMAT_ARGS, (FFformatarg[]){
             {FF_FORMAT_ARG_TYPE_STRBUF, &playerPretty},
             {FF_FORMAT_ARG_TYPE_STRBUF, &media->player},
             {FF_FORMAT_ARG_TYPE_STRBUF, &media->busNameShort}

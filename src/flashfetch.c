@@ -10,10 +10,7 @@ int main(int argc, char** argv)
 
     //Modify instance.config here
 
-    //Multithreading --> better performance
-    ffStartDetectionThreads(&instance);
-
-    //Does things like disabling line wrap
+    //Does things like starting detection threads, disabling line wrap, etc
     ffStart(&instance);
 
     //Printing
@@ -50,6 +47,8 @@ int main(int argc, char** argv)
     //ffPrintDateTime(&instance);
     //ffPrintDate(&instance);
     //ffPrintTime(&instance);
+    //ffPrintVulkan(&instance);
+    //ffPrintOpenGL(&instance);
     ffPrintBreak(&instance);
     ffPrintColors(&instance);
 

@@ -1,7 +1,7 @@
 #include "fastfetch.h"
+#include "detection/datetime.h"
 
 #include <time.h>
-
 #include <pthread.h>
 
 const FFDateTimeResult* ffDetectDateTime(const FFinstance* instance)

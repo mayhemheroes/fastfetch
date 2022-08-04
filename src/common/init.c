@@ -1,8 +1,15 @@
 #include "fastfetch.h"
+#include "common/caching.h"
+#include "common/parsing.h"
+#include "detection/qt.h"
+#include "detection/gtk.h"
+#include "detection/displayserver.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <pthread.h>
 
 static bool strbufEqualsAdapter(const void* first, const void* second)
 {
@@ -14,17 +21,13 @@ static void initConfigDirs(FFstate* state)
     ffListInit(&state->configDirs, sizeof(FFstrbuf));
 
     const char* xdgConfigHome = getenv("XDG_CONFIG_HOME");
-    if(xdgConfigHome != NULL)
+    if(ffStrSet(xdgConfigHome))
     {
         FFstrbuf* buffer = (FFstrbuf*) ffListAdd(&state->configDirs);
         ffStrbufInitA(buffer, 64);
         ffStrbufAppendS(buffer, xdgConfigHome);
-        ffStrbufTrimRight(buffer, '/');
+        ffStrbufEnsureEndsWithC(buffer, '/');
     }
-
-    FFstrbuf xdgConfigDirs;
-    ffStrbufInitA(&xdgConfigDirs, 64);
-    ffStrbufAppendS(&xdgConfigDirs, getenv("XDG_CONFIG_DIRS"));
 
     #define FF_ENSURE_ONLY_ONCE_IN_LIST(element) \
         if(ffListFirstIndexComp(&state->configDirs, element, strbufEqualsAdapter) < state->configDirs.length - 1) \
@@ -33,13 +36,18 @@ static void initConfigDirs(FFstate* state)
     FFstrbuf* userConfigHome = ffListAdd(&state->configDirs);
     ffStrbufInitA(userConfigHome, 64);
     ffStrbufAppendS(userConfigHome, state->passwd->pw_dir);
-    ffStrbufAppendS(userConfigHome, "/.config");
+    ffStrbufAppendS(userConfigHome, "/.config/");
     FF_ENSURE_ONLY_ONCE_IN_LIST(userConfigHome)
 
     FFstrbuf* userHome = ffListAdd(&state->configDirs);
     ffStrbufInitA(userHome, 64);
     ffStrbufAppendS(userHome, state->passwd->pw_dir);
+    ffStrbufEnsureEndsWithC(userHome, '/');
     FF_ENSURE_ONLY_ONCE_IN_LIST(userHome)
+
+    FFstrbuf xdgConfigDirs;
+    ffStrbufInitA(&xdgConfigDirs, 64);
+    ffStrbufAppendS(&xdgConfigDirs, getenv("XDG_CONFIG_DIRS"));
 
     uint32_t startIndex = 0;
     while (startIndex < xdgConfigDirs.length)
@@ -47,10 +55,16 @@ static void initConfigDirs(FFstate* state)
         uint32_t colonIndex = ffStrbufNextIndexC(&xdgConfigDirs, startIndex, ':');
         xdgConfigDirs.chars[colonIndex] = '\0';
 
+        if(!ffStrSet(xdgConfigDirs.chars + startIndex))
+        {
+            startIndex = colonIndex + 1;
+            continue;
+        }
+
         FFstrbuf* buffer = (FFstrbuf*) ffListAdd(&state->configDirs);
         ffStrbufInitA(buffer, 64);
         ffStrbufAppendS(buffer, xdgConfigDirs.chars + startIndex);
-        ffStrbufTrimRight(buffer, '/');
+        ffStrbufEnsureEndsWithC(buffer, '/');
         FF_ENSURE_ONLY_ONCE_IN_LIST(buffer);
 
         startIndex = colonIndex + 1;
@@ -58,12 +72,12 @@ static void initConfigDirs(FFstate* state)
 
     FFstrbuf* systemConfigHome = ffListAdd(&state->configDirs);
     ffStrbufInitA(systemConfigHome, 64);
-    ffStrbufAppendS(systemConfigHome, FASTFETCH_TARGET_DIR_ROOT"/etc/xdg");
+    ffStrbufAppendS(systemConfigHome, FASTFETCH_TARGET_DIR_ROOT"/etc/xdg/");
     FF_ENSURE_ONLY_ONCE_IN_LIST(systemConfigHome)
 
     FFstrbuf* systemConfig = ffListAdd(&state->configDirs);
     ffStrbufInitA(systemConfig, 64);
-    ffStrbufAppendS(systemConfig, FASTFETCH_TARGET_DIR_ROOT"/etc");
+    ffStrbufAppendS(systemConfig, FASTFETCH_TARGET_DIR_ROOT"/etc/");
     FF_ENSURE_ONLY_ONCE_IN_LIST(systemConfig)
 
     #undef FF_ENSURE_ONLY_ONCE_IN_LIST
@@ -80,8 +94,8 @@ static void initCacheDir(FFstate* state)
         ffStrbufAppendS(&state->cacheDir, state->passwd->pw_dir);
         ffStrbufAppendS(&state->cacheDir, "/.cache/");
     }
-    else if(!ffStrbufEndsWithC(&state->cacheDir, '/'))
-        ffStrbufAppendC(&state->cacheDir, '/');
+    else
+        ffStrbufEnsureEndsWithC(&state->cacheDir, '/');
 
     mkdir(state->cacheDir.chars, S_IRWXU | S_IXGRP | S_IRGRP | S_IXOTH | S_IROTH); //I hope everybody has a cache folder, but who knows
 
@@ -102,17 +116,24 @@ static void initState(FFstate* state)
     initCacheDir(state);
 }
 
+static void initModuleArg(FFModuleArgs* args)
+{
+    ffStrbufInitA(&args->key, 0);
+    ffStrbufInitA(&args->outputFormat, 0);
+    ffStrbufInitA(&args->errorFormat, 0);
+}
+
 static void defaultConfig(FFinstance* instance)
 {
-    ffStrbufInit(&instance->config.logoSource);
-    instance->config.logoType = FF_LOGO_TYPE_AUTO;
+    ffStrbufInit(&instance->config.logo.source);
+    instance->config.logo.type = FF_LOGO_TYPE_AUTO;
     for(uint8_t i = 0; i < (uint8_t) FASTFETCH_LOGO_MAX_COLORS; ++i)
-        ffStrbufInit(&instance->config.logoColors[i]);
-    instance->config.logoWidth = 0;
-    instance->config.logoHeight = 0; //preserve aspect ratio
-    instance->config.logoPaddingLeft = 0;
-    instance->config.logoPaddingRight = 4;
-    instance->config.logoPrintRemaining = true;
+        ffStrbufInit(&instance->config.logo.colors[i]);
+    instance->config.logo.width = 0;
+    instance->config.logo.height = 0; //preserve aspect ratio
+    instance->config.logo.paddingLeft = 0;
+    instance->config.logo.paddingRight = 4;
+    instance->config.logo.printRemaining = true;
 
     ffStrbufInit(&instance->config.mainColor);
     ffStrbufInit(&instance->config.separator);
@@ -124,69 +145,45 @@ static void defaultConfig(FFinstance* instance)
     instance->config.allowSlowOperations = false;
     instance->config.disableLinewrap = true;
     instance->config.hideCursor = true;
+    instance->config.escapeBedrock = true;
+    instance->config.glType = FF_GL_TYPE_AUTO;
+    instance->config.pipe = false;
+    instance->config.multithreading = true;
 
-    ffStrbufInitA(&instance->config.osFormat, 0);
-    ffStrbufInitA(&instance->config.osKey, 0);
-    ffStrbufInitA(&instance->config.hostFormat, 0);
-    ffStrbufInitA(&instance->config.hostKey, 0);
-    ffStrbufInitA(&instance->config.kernelFormat, 0);
-    ffStrbufInitA(&instance->config.kernelKey, 0);
-    ffStrbufInitA(&instance->config.uptimeFormat, 0);
-    ffStrbufInitA(&instance->config.uptimeKey, 0);
-    ffStrbufInitA(&instance->config.processesFormat, 0);
-    ffStrbufInitA(&instance->config.processesKey, 0);
-    ffStrbufInitA(&instance->config.packagesFormat, 0);
-    ffStrbufInitA(&instance->config.packagesKey, 0);
-    ffStrbufInitA(&instance->config.shellFormat, 0);
-    ffStrbufInitA(&instance->config.shellKey, 0);
-    ffStrbufInitA(&instance->config.resolutionFormat, 0);
-    ffStrbufInitA(&instance->config.resolutionKey, 0);
-    ffStrbufInitA(&instance->config.deFormat, 0);
-    ffStrbufInitA(&instance->config.deKey, 0);
-    ffStrbufInitA(&instance->config.wmFormat, 0);
-    ffStrbufInitA(&instance->config.wmKey, 0);
-    ffStrbufInitA(&instance->config.wmThemeFormat, 0);
-    ffStrbufInitA(&instance->config.wmThemeKey, 0);
-    ffStrbufInitA(&instance->config.themeFormat, 0);
-    ffStrbufInitA(&instance->config.themeKey, 0);
-    ffStrbufInitA(&instance->config.iconsFormat, 0);
-    ffStrbufInitA(&instance->config.iconsKey, 0);
-    ffStrbufInitA(&instance->config.fontFormat, 0);
-    ffStrbufInitA(&instance->config.fontKey, 0);
-    ffStrbufInitA(&instance->config.cursorKey, 0);
-    ffStrbufInitA(&instance->config.cursorFormat, 0);
-    ffStrbufInitA(&instance->config.terminalFormat, 0);
-    ffStrbufInitA(&instance->config.terminalKey, 0);
-    ffStrbufInitA(&instance->config.termFontFormat, 0);
-    ffStrbufInitA(&instance->config.termFontKey, 0);
-    ffStrbufInitA(&instance->config.cpuFormat, 0);
-    ffStrbufInitA(&instance->config.cpuKey, 0);
-    ffStrbufInitA(&instance->config.cpuUsageFormat, 0);
-    ffStrbufInitA(&instance->config.cpuUsageKey, 0);
-    ffStrbufInitA(&instance->config.gpuFormat, 0);
-    ffStrbufInitA(&instance->config.gpuKey, 0);
-    ffStrbufInitA(&instance->config.memoryFormat, 0);
-    ffStrbufInitA(&instance->config.memoryKey, 0);
-    ffStrbufInitA(&instance->config.diskFormat, 0);
-    ffStrbufInitA(&instance->config.diskKey, 0);
-    ffStrbufInitA(&instance->config.batteryFormat, 0);
-    ffStrbufInitA(&instance->config.batteryKey, 0);
-    ffStrbufInitA(&instance->config.localeFormat, 0);
-    ffStrbufInitA(&instance->config.localeKey, 0);
-    ffStrbufInitA(&instance->config.localIpKey, 0);
-    ffStrbufInitA(&instance->config.localIpFormat, 0);
-    ffStrbufInitA(&instance->config.publicIpKey, 0);
-    ffStrbufInitA(&instance->config.publicIpFormat, 0);
-    ffStrbufInitA(&instance->config.playerKey, 0);
-    ffStrbufInitA(&instance->config.playerFormat, 0);
-    ffStrbufInitA(&instance->config.songKey, 0);
-    ffStrbufInitA(&instance->config.songFormat, 0);
-    ffStrbufInitA(&instance->config.dateTimeKey, 0);
-    ffStrbufInitA(&instance->config.dateTimeFormat, 0);
-    ffStrbufInitA(&instance->config.dateKey, 0);
-    ffStrbufInitA(&instance->config.dateFormat, 0);
-    ffStrbufInitA(&instance->config.timeKey, 0);
-    ffStrbufInitA(&instance->config.timeFormat, 0);
+    initModuleArg(&instance->config.os);
+    initModuleArg(&instance->config.host);
+    initModuleArg(&instance->config.kernel);
+    initModuleArg(&instance->config.uptime);
+    initModuleArg(&instance->config.processes);
+    initModuleArg(&instance->config.packages);
+    initModuleArg(&instance->config.shell);
+    initModuleArg(&instance->config.resolution);
+    initModuleArg(&instance->config.de);
+    initModuleArg(&instance->config.wm);
+    initModuleArg(&instance->config.wmTheme);
+    initModuleArg(&instance->config.theme);
+    initModuleArg(&instance->config.icons);
+    initModuleArg(&instance->config.font);
+    initModuleArg(&instance->config.cursor);
+    initModuleArg(&instance->config.terminal);
+    initModuleArg(&instance->config.terminalFont);
+    initModuleArg(&instance->config.cpu);
+    initModuleArg(&instance->config.cpuUsage);
+    initModuleArg(&instance->config.gpu);
+    initModuleArg(&instance->config.memory);
+    initModuleArg(&instance->config.disk);
+    initModuleArg(&instance->config.battery);
+    initModuleArg(&instance->config.locale);
+    initModuleArg(&instance->config.localIP);
+    initModuleArg(&instance->config.publicIP);
+    initModuleArg(&instance->config.player);
+    initModuleArg(&instance->config.song);
+    initModuleArg(&instance->config.dateTime);
+    initModuleArg(&instance->config.date);
+    initModuleArg(&instance->config.time);
+    initModuleArg(&instance->config.vulkan);
+    initModuleArg(&instance->config.openGL);
+    initModuleArg(&instance->config.openCL);
 
     ffStrbufInitA(&instance->config.libPCI, 0);
     ffStrbufInitA(&instance->config.libVulkan, 0);
@@ -204,6 +201,12 @@ static void defaultConfig(FFinstance* instance)
     ffStrbufInitA(&instance->config.libImageMagick, 0);
     ffStrbufInitA(&instance->config.libZ, 0);
     ffStrbufInitA(&instance->config.libChafa, 0);
+    ffStrbufInitA(&instance->config.libEGL, 0);
+    ffStrbufInitA(&instance->config.libGLX, 0);
+    ffStrbufInitA(&instance->config.libOSMesa, 0);
+    ffStrbufInitA(&instance->config.libOpenCL, 0);
+
+    instance->config.titleFQDN = false;
 
     ffStrbufInitA(&instance->config.diskFolders, 0);
 
@@ -228,29 +231,101 @@ void ffInitInstance(FFinstance* instance)
     defaultConfig(instance);
 }
 
-static void resetConsole(bool disableLinewrap, bool hideCursor)
+static inline void* detectPlasmaThreadMain(void* instance)
 {
-    if(disableLinewrap)
-        fputs("\033[?7h", stdout);
+    ffDetectQt((FFinstance*)instance);
+    return NULL;
+}
 
-    if(hideCursor)
-        fputs("\033[?25h", stdout);
+static inline void* detectGTK2ThreadMain(void* instance)
+{
+    ffDetectGTK2((FFinstance*)instance);
+    return NULL;
+}
+
+static inline void* detectGTK3ThreadMain(void* instance)
+{
+    ffDetectGTK3((FFinstance*)instance);
+    return NULL;
+}
+
+static inline void* detectGTK4ThreadMain(void* instance)
+{
+    ffDetectGTK4((FFinstance*)instance);
+    return NULL;
+}
+
+static inline void* connectDisplayServerThreadMain(void* instance)
+{
+    ffConnectDisplayServer((FFinstance*)instance);
+    return NULL;
+}
+
+static inline void* startThreadsThreadMain(void* instance)
+{
+    pthread_t dsThread;
+    pthread_create(&dsThread, NULL, connectDisplayServerThreadMain, instance);
+    pthread_detach(dsThread);
+
+    pthread_t gtk2Thread;
+    pthread_create(&gtk2Thread, NULL, detectGTK2ThreadMain, instance);
+    pthread_detach(gtk2Thread);
+
+    pthread_t gtk3Thread;
+    pthread_create(&gtk3Thread, NULL, detectGTK3ThreadMain, instance);
+    pthread_detach(gtk3Thread);
+
+    pthread_t gtk4Thread;
+    pthread_create(&gtk4Thread, NULL, detectGTK4ThreadMain, instance);
+    pthread_detach(gtk4Thread);
+
+    pthread_t plasmaThread;
+    pthread_create(&plasmaThread, NULL, detectPlasmaThreadMain, instance);
+    pthread_detach(plasmaThread);
+
+    return NULL;
+}
+
+void startDetectionThreads(FFinstance* instance)
+{
+    //Android needs none of the things that are detected here
+    //And using gsettings sometimes hangs the program in android for some unknown reason,
+    //and since we don't need it we just never call it.
+    #ifdef __ANDROID__
+        return;
+    #endif
+
+    pthread_t startThreadsThread;
+    pthread_create(&startThreadsThread, NULL, startThreadsThreadMain, instance);
+    pthread_detach(startThreadsThread);
 }
 
 static volatile bool ffDisableLinewrap = true;
 static volatile bool ffHideCursor = true;
 
+static void resetConsole()
+{
+    if(ffDisableLinewrap)
+        fputs("\033[?7h", stdout);
+
+    if(ffHideCursor)
+        fputs("\033[?25h", stdout);
+}
+
 static void exitSignalHandler(int signal)
 {
     FF_UNUSED(signal);
-    resetConsole(ffDisableLinewrap, ffHideCursor);
+    resetConsole();
     exit(0);
 }
 
 void ffStart(FFinstance* instance)
 {
-    ffDisableLinewrap = instance->config.disableLinewrap;
-    ffHideCursor = instance->config.hideCursor;
+    if(instance->config.multithreading)
+        startDetectionThreads(instance);
+
+    ffDisableLinewrap = instance->config.disableLinewrap && !instance->config.pipe;
+    ffHideCursor = instance->config.hideCursor && !instance->config.pipe;
 
     struct sigaction action = {};
     action.sa_handler = exitSignalHandler;
@@ -260,24 +335,28 @@ void ffStart(FFinstance* instance)
     sigaction(SIGQUIT, &action, NULL);
 
     //We do the cache validation here, so we can skip it if --recache is given
-    ffCacheValidate(instance);
+    if(!instance->config.recache)
+        ffCacheValidate(instance);
 
     //reset everything to default before we start printing
-    fputs(FASTFETCH_TEXT_MODIFIER_RESET, stdout);
+    if(!instance->config.pipe)
+        fputs(FASTFETCH_TEXT_MODIFIER_RESET, stdout);
 
-    if(instance->config.hideCursor)
+    if(ffHideCursor)
         fputs("\033[?25l", stdout);
 
-    if(instance->config.disableLinewrap)
+    if(ffDisableLinewrap)
         fputs("\033[?7l", stdout);
 
-    ffPrintLogo(instance);
+    ffLogoPrint(instance);
 }
 
 void ffFinish(FFinstance* instance)
 {
-    ffPrintRemainingLogo(instance);
-    resetConsole(instance->config.disableLinewrap, instance->config.hideCursor);
+    if(instance->config.logo.printRemaining)
+        ffLogoPrintRemaining(instance);
+
+    resetConsole();
 }
 
 //Must be in a file compiled with the libfastfetch target, because the FF_HAVE* macros are not defined for the executable targets
@@ -334,6 +413,18 @@ void ffListFeatures()
         #endif
         #ifdef FF_HAVE_RPM
             "rpm\n"
+        #endif
+        #ifdef FF_HAVE_EGL
+            "egl\n"
+        #endif
+        #ifdef FF_HAVE_GLX
+            "glx\n"
+        #endif
+        #ifdef FF_HAVE_OSMESA
+            "osmesa\n"
+        #endif
+        #ifdef FF_HAVE_OPENCL
+            "opencl\n"
         #endif
         ""
     , stdout);

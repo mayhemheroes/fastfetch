@@ -1,8 +1,18 @@
 #include "fastfetch.h"
+#include "common/printing.h"
 
 void ffPrintColors(FFinstance* instance)
 {
-    ffPrintLogoLine(instance);
+    if(instance->config.pipe)
+    {
+        ffLogoPrintLine(instance);
+        puts("████████████████████████");
+        ffLogoPrintLine(instance);
+        puts("████████████████████████");
+        return;
+    }
+
+    ffLogoPrintLine(instance);
 
     // 4%d: Set the background color
     // 3%d: Set the foreground color
@@ -11,7 +21,7 @@ void ffPrintColors(FFinstance* instance)
 
     puts(FASTFETCH_TEXT_MODIFIER_RESET);
 
-    ffPrintLogoLine(instance);
+    ffLogoPrintLine(instance);
 
     // 1: Set everything to bolt. This causes normal colors on some systems to be bright.
     // 4%d: Set the backgound to the not bright color

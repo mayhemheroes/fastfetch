@@ -1,7 +1,17 @@
 #include "fastfetch.h"
+#include "common/settings.h"
+#include "common/library.h"
+#include "common/io.h"
 
 #include <pthread.h>
 #include <string.h>
+
+typedef enum FFInitState
+{
+    FF_INITSTATE_UNINITIALIZED = 0,
+    FF_INITSTATE_SUCCESSFUL = 1,
+    FF_INITSTATE_FAILED = 2
+} FFInitState;
 
 #define FF_LIBRARY_DATA_LOAD_INIT(dataObject, userLibraryName, ...) \
     static dataObject data; \
@@ -270,6 +280,7 @@ FFvariant ffSettingsGetXFConf(FFinstance* instance, const char* channelName, con
 
 #ifdef FF_HAVE_SQLITE3
 #include <sqlite3.h>
+#include <sys/stat.h>
 
 typedef struct SQLiteData
 {
@@ -299,6 +310,9 @@ static const SQLiteData* getSQLiteData(const FFinstance* instance)
 
 int ffSettingsGetSQLite3Int(const FFinstance* instance, const char* dbPath, const char* query)
 {
+    if(!ffFileExists(dbPath, S_IFREG))
+        return 0;
+
     const SQLiteData* data = getSQLiteData(instance);
     if(data == NULL)
         return 0;

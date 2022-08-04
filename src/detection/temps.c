@@ -1,16 +1,15 @@
 #include "fastfetch.h"
+#include "detection/temps.h"
+#include "common/io.h"
 
+#include <string.h>
 #include <pthread.h>
 #include <dirent.h>
-#include <string.h>
 
 static bool isTempFile(const char* name)
 {
     return
-        name[0] == 't' &&
-        name[1] == 'e' &&
-        name[2] == 'm' &&
-        name[3] == 'p' &&
+        strncmp(name, "temp", 4) == 0 &&
         name[4] >= '0' &&
         name[4] <= '9' &&
         strncmp(name + 5, "_input", 6) == 0;
@@ -23,30 +22,42 @@ static bool parseHwmonDir(FFstrbuf* dir, FFTempValue* value)
         return false;
 
     uint32_t dirLength = dir->length;
+    value->value = 0.0 / 0.0; //use NaN as error value
+
+    FFstrbuf valueString;
+    ffStrbufInit(&valueString);
 
     struct dirent* dirent;
     while((dirent = readdir(dirp)) != NULL)
     {
-        if(isTempFile(dirent->d_name))
-        {
-            ffStrbufAppendS(dir, dirent->d_name);
-            ffGetFileContent(dir->chars, &value->value);
-            ffStrbufSubstrBefore(dir, dirLength);
-            break;
-        }
+        if(!isTempFile(dirent->d_name))
+            continue;
+
+        ffStrbufAppendS(dir, dirent->d_name);
+        ffReadFileBuffer(dir->chars, &valueString);
+        ffStrbufSubstrBefore(dir, dirLength);
+
+        //ffStrbufToDouble() returns NaN if the string couldn't be parsed
+        value->value = ffStrbufToDouble(&valueString);
+        if(value->value != value->value)
+            continue;
+
+        value->value /= 1000.0; //millidegrees to degrees
+        break;
     }
 
     closedir(dirp);
+    ffStrbufDestroy(&valueString);
 
-    if(value->value.length == 0)
+    if(value->value != value->value)
         return false;
 
     ffStrbufAppendS(dir, "name");
-    ffGetFileContent(dir->chars, &value->name);
+    ffReadFileBuffer(dir->chars, &value->name);
     ffStrbufSubstrBefore(dir, dirLength);
 
     ffStrbufAppendS(dir, "device/class");
-    ffGetFileContent(dir->chars, &value->deviceClass);
+    ffReadFileBuffer(dir->chars, &value->deviceClass);
     ffStrbufSubstrBefore(dir, dirLength);
 
     return value->name.length > 0 || value->deviceClass.length > 0;
@@ -95,12 +106,10 @@ const FFTempsResult* ffDetectTemps(const FFinstance* instance)
         FFTempValue* temp = ffListAdd(&result.values);
         ffStrbufInit(&temp->name);
         ffStrbufInit(&temp->deviceClass);
-        ffStrbufInit(&temp->value);
         if(!parseHwmonDir(&baseDir, temp))
         {
             ffStrbufDestroy(&temp->name);
             ffStrbufDestroy(&temp->deviceClass);
-            ffStrbufDestroy(&temp->value);
             --result.values.length;
         }
 
