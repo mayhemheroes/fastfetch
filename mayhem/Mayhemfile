@@ -1,0 +1,5 @@
+project: fastfetch
+target: fastfetch
+
+cmds:
+  - cmd: /install/bin/fastfetch --load-config @@
